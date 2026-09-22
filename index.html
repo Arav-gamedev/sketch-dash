@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sketch Dash</title>
+<style>
+  :root{
+    --paper:#FFFDF6;
+    --paper-dim:#F3EEE1;
+    --ink:#241F16;
+    --ink-soft:#5C5545;
+    --teal:#0E7C7B;
+    --teal-dark:#0A5F5E;
+    --coral:#EF6C5C;
+    --butter:#F5B942;
+    --line:#E4DCC6;
+    --white:#FFFFFF;
+    --radius:14px;
+  }
+  :root:not([data-theme="light"]){
+    /* default light values above act as base */
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#1B1812;
+      --paper-dim:#221E17;
+      --ink:#F3EEE1;
+      --ink-soft:#B8B096;
+      --teal:#3AD1CE;
+      --teal-dark:#2BA5A2;
+      --coral:#FF8A7A;
+      --butter:#F5C463;
+      --line:#3A3427;
+      --white:#2A251C;
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#1B1812;
+    --paper-dim:#221E17;
+    --ink:#F3EEE1;
+    --ink-soft:#B8B096;
+    --teal:#3AD1CE;
+    --teal-dark:#2BA5A2;
+    --coral:#FF8A7A;
+    --butter:#F5C463;
+    --line:#3A3427;
+    --white:#2A251C;
+  }
+
+  *{ box-sizing:border-box; }
+  html{
+    scroll-padding-top:env(safe-area-inset-top,0px);
+  }
+  html,body{
+    height:100%;
+    margin:0;
+  }
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:"Fredoka","Segoe UI",system-ui,sans-serif;
+    padding-top:env(safe-area-inset-top,0px);
+    padding-bottom:env(safe-area-inset-bottom,0px);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    min-height:100%;
+  }
+
+  @font-face{
+    font-family:"Fredoka";
+    src:local("Fredoka");
+  }
+
+  .wrap{
+    width:100%;
+    max-width:760px;
+    padding:20px 16px 32px;
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+  }
+
+  header{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    gap:8px;
+    flex-wrap:wrap;
+  }
+  h1{
+    margin:0;
+    font-size:clamp(28px,6vw,38px);
+    font-weight:700;
+    letter-spacing:-0.01em;
+  }
+  h1 span{
+    display:inline-block;
+    transform:rotate(-3deg);
+    color:var(--coral);
+  }
+  .score{
+    font-size:15px;
+    color:var(--ink-soft);
+    display:flex;
+    gap:14px;
+  }
+  .score b{ color:var(--ink); font-size:20px; }
+
+  .prompt-card{
+    background:var(--white);
+    border:2px solid var(--line);
+    border-radius:var(--radius);
+    padding:16px 18px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    flex-wrap:wrap;
+  }
+  .prompt-left{ display:flex; flex-direction:column; gap:2px; min-width:180px; }
+  .prompt-label{ font-size:12px; color:var(--ink-soft); text-transform:lowercase; }
+  .prompt-word{
+    font-size:clamp(22px,5vw,30px);
+    font-weight:700;
+  }
+  .prompt-word.hidden-word{
+    filter:blur(8px);
+    user-select:none;
+  }
+  .timer-ring{
+    position:relative;
+    width:56px;
+    height:56px;
+    flex:0 0 auto;
+  }
+  .timer-ring svg{ transform:rotate(-90deg); width:56px; height:56px; }
+  .timer-ring circle{
+    fill:none;
+    stroke-width:6;
+  }
+  .timer-ring .bg{ stroke:var(--paper-dim); }
+  .timer-ring .fg{
+    stroke:var(--teal);
+    stroke-linecap:round;
+    transition:stroke-dashoffset 1s linear, stroke 0.3s;
+  }
+  .timer-num{
+    position:absolute;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:700;
+    font-size:16px;
+  }
+
+  .canvas-shell{
+    background:var(--white);
+    border:2px solid var(--line);
+    border-radius:var(--radius);
+    padding:8px;
+    touch-action:none;
+  }
+  #board{
+    width:100%;
+    display:block;
+    border-radius:8px;
+    background:
+      linear-gradient(var(--paper-dim) 1px, transparent 1px),
+      linear-gradient(90deg, var(--paper-dim) 1px, transparent 1px);
+    background-size:24px 24px;
+    background-color:var(--paper);
+    cursor:crosshair;
+  }
+
+  .toolbar{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    flex-wrap:wrap;
+    background:var(--white);
+    border:2px solid var(--line);
+    border-radius:var(--radius);
+    padding:10px 12px;
+  }
+  .swatches{ display:flex; gap:6px; }
+  .swatch{
+    width:28px; height:28px;
+    border-radius:50%;
+    border:2px solid var(--white);
+    outline:2px solid var(--line);
+    cursor:pointer;
+    padding:0;
+  }
+  .swatch.active{ outline:2px solid var(--ink); }
+
+  .tool-btn{
+    border:2px solid var(--line);
+    background:var(--paper);
+    color:var(--ink);
+    border-radius:10px;
+    padding:8px 10px;
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+    font-family:inherit;
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+  .tool-btn.active{
+    background:var(--teal);
+    border-color:var(--teal);
+    color:#fff;
+  }
+  .tool-btn:hover{ border-color:var(--ink-soft); }
+
+  input[type=range]{
+    width:80px;
+    accent-color:var(--teal);
+  }
+
+  .spacer{ flex:1 1 auto; }
+
+  .actions{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+  }
+  .btn{
+    flex:1 1 auto;
+    border:none;
+    border-radius:12px;
+    padding:14px 16px;
+    font-size:16px;
+    font-weight:700;
+    font-family:inherit;
+    cursor:pointer;
+    color:#fff;
+    transition:transform 0.12s ease;
+  }
+  .btn:active{ transform:scale(0.97); }
+  .btn-got{ background:var(--teal); }
+  .btn-got:hover{ background:var(--teal-dark); }
+  .btn-skip{ background:var(--coral); }
+  .btn-new{ background:var(--ink); }
+  .btn-ghost{
+    background:transparent;
+    color:var(--ink-soft);
+    border:2px solid var(--line);
+  }
+
+  footer{
+    text-align:center;
+    font-size:12px;
+    color:var(--ink-soft);
+    padding-top:4px;
+  }
+
+  .ai-row{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+  }
+  .hint-output, .rating-output{
+    background:var(--paper-dim);
+    border-radius:12px;
+    padding:12px 14px;
+    font-size:14px;
+    line-height:1.5;
+    color:var(--ink);
+  }
+  .rating-output b{ font-size:18px; }
+
+  .rules{
+    background:var(--paper-dim);
+    border-radius:var(--radius);
+    padding:14px 16px;
+    font-size:14px;
+    line-height:1.5;
+    color:var(--ink-soft);
+  }
+  .rules b{ color:var(--ink); }
+  .rules ol{ margin:6px 0 0; padding-left:20px; }
+  .rules li{ margin-bottom:2px; }
+
+  .gallery-section{
+    margin-top:8px;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  .gallery-head{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:8px;
+  }
+  .gallery-head h2{
+    margin:0;
+    font-size:20px;
+    font-weight:700;
+  }
+  .gallery-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(140px,1fr));
+    gap:12px;
+  }
+  .gallery-empty{
+    color:var(--ink-soft);
+    font-size:14px;
+    padding:18px;
+    text-align:center;
+    border:2px dashed var(--line);
+    border-radius:var(--radius);
+  }
+  .gallery-item{
+    background:var(--white);
+    border:2px solid var(--line);
+    border-radius:12px;
+    overflow:hidden;
+    display:flex;
+    flex-direction:column;
+  }
+  .gallery-item img{
+    width:100%;
+    display:block;
+    background:var(--paper);
+    aspect-ratio:1/1;
+    object-fit:contain;
+  }
+  .gallery-caption{
+    padding:8px 10px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:6px;
+  }
+  .gallery-caption span{
+    font-size:13px;
+    font-weight:600;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .gallery-caption-btns{
+    display:flex;
+    gap:2px;
+    flex:0 0 auto;
+  }
+  .gallery-del, .gallery-dl{
+    border:none;
+    background:none;
+    color:var(--ink-soft);
+    cursor:pointer;
+    font-size:15px;
+    line-height:1;
+    padding:2px 4px;
+  }
+  .gallery-del:hover{ color:var(--coral); }
+  .gallery-dl:hover{ color:var(--teal); }
+
+  .ai-box.hidden{ display:none; }
+  .ai-row{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+  }
+  .ai-row .tool-btn{ width:100%; justify-content:center; }
+  .ai-row .tool-btn[hidden]{ display:none; }
+  .hint-output, .rating-output{
+    background:var(--paper-dim);
+    border-radius:12px;
+    padding:10px 14px;
+    font-size:14px;
+    color:var(--ink);
+    line-height:1.4;
+  }
+  .hint-output[hidden], .rating-output[hidden]{ display:none; }
+  .rating-score{
+    font-weight:700;
+    color:var(--teal-dark);
+  }
+    .btn{ transition:none; }
+    .timer-ring .fg{ transition:none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Sketch <span>Dash</span></h1>
+    <div class="score">
+      <div>solved <b id="solvedCount">0</b></div>
+      <div>streak <b id="streakCount">0</b></div>
+    </div>
+  </header>
+
+  <div class="rules">
+    <b>How to play:</b> a word appears above the canvas — draw it before the 60-second timer runs out. No letters or numbers, just your best doodle.
+    <ol>
+      <li>Hit <b>New word</b> to get a prompt and start the clock. Stuck? Tap <b>Get a hint</b> for a tip on how to sketch it.</li>
+      <li>Draw it. If someone else is guessing, tap <b>Hide word</b> so it doesn't give it away on their screen.</li>
+      <li>When you're done, tap <b>Rate my drawing</b> for a score out of 10.</li>
+      <li>Tap <b>Got it!</b> once it's guessed (or you're happy with it) — that's a point and your streak grows. <b>Skip</b> if you're stuck.</li>
+      <li>Happy with your sketch? Tap <b>Save to gallery</b> to keep it below.</li>
+    </ol>
+  </div>
+
+  <div class="prompt-card">
+    <div class="prompt-left">
+      <div class="prompt-label">draw this —</div>
+      <div class="prompt-word" id="promptWord">tap "New word" to start</div>
+    </div>
+    <div class="timer-ring">
+      <svg viewBox="0 0 56 56">
+        <circle class="bg" cx="28" cy="28" r="24"></circle>
+        <circle class="fg" id="ringFg" cx="28" cy="28" r="24"></circle>
+      </svg>
+      <div class="timer-num" id="timerNum">60</div>
+    </div>
+  </div>
+
+  <div class="ai-row">
+    <button class="tool-btn" id="hintBtn" hidden>Get a hint 💡</button>
+    <div class="hint-output" id="hintOutput" hidden></div>
+  </div>
+
+  <div class="canvas-shell">
+    <canvas id="board" height="420"></canvas>
+  </div>
+
+  <div class="toolbar">
+    <div class="swatches" id="swatches"></div>
+    <input type="range" id="brushSize" min="2" max="28" value="6">
+    <button class="tool-btn" id="eraserBtn">Eraser</button>
+    <div class="spacer"></div>
+    <button class="tool-btn" id="undoBtn">Undo</button>
+    <button class="tool-btn" id="clearBtn">Clear</button>
+  </div>
+
+  <div class="actions">
+    <button class="btn btn-got" id="gotItBtn">Got it! ✓</button>
+    <button class="btn btn-skip" id="skipBtn">Skip</button>
+  </div>
+  <div class="actions">
+    <button class="btn btn-new" id="newWordBtn">New word</button>
+    <button class="btn-ghost tool-btn" id="saveGalleryBtn" style="flex:1 1 auto;">Save to gallery 🖼</button>
+    <button class="btn-ghost tool-btn" id="downloadBtn" style="flex:1 1 auto;" hidden>Download ⬇</button>
+  </div>
+
+  <div class="ai-row">
+    <button class="tool-btn" id="rateBtn" hidden>Rate my drawing ⭐</button>
+    <div class="rating-output" id="ratingOutput" hidden></div>
+  </div>
+
+  <button class="btn-ghost tool-btn" id="revealBtn" style="align-self:center;">Hide word</button>
+
+  <div class="gallery-section">
+    <div class="gallery-head">
+      <h2>Our gallery</h2>
+      <button class="tool-btn" id="clearGalleryBtn">Clear gallery</button>
+    </div>
+    <div class="gallery-grid" id="galleryGrid"></div>
+  </div>
+
+  <footer>Draw the prompt before the timer runs out — for one player, or pass the screen around and let others guess. Saved sketches live in this browser only.</footer>
+</div>
+
+<script>
+(function(){
+  const words = [
+    "octopus","volcano","umbrella","robot","sandcastle","lighthouse","dragon","bicycle",
+    "campfire","jellyfish","pretzel","telescope","cactus","snowman","pirate ship","rainbow",
+    "spider web","waterfall","hot air balloon","penguin","skateboard","tornado","beehive",
+    "mushroom","kite","igloo","peacock","saxophone","volcano eruption","scarecrow","tractor",
+    "windmill","chameleon","submarine","pinwheel","hammock","acorn","comet","lantern",
+    "flamingo","canoe","ferris wheel","cupcake","anchor","koala","pyramid","snorkel",
+    "beaver","satellite","treehouse","narwhal"
+  ];
+
+  const promptWordEl = document.getElementById('promptWord');
+  const solvedCountEl = document.getElementById('solvedCount');
+  const streakCountEl = document.getElementById('streakCount');
+  const timerNumEl = document.getElementById('timerNum');
+  const ringFg = document.getElementById('ringFg');
+  const newWordBtn = document.getElementById('newWordBtn');
+  const gotItBtn = document.getElementById('gotItBtn');
+  const skipBtn = document.getElementById('skipBtn');
+  const revealBtn = document.getElementById('revealBtn');
+  const clearBtn = document.getElementById('clearBtn');
+  const undoBtn = document.getElementById('undoBtn');
+  const eraserBtn = document.getElementById('eraserBtn');
+  const brushSize = document.getElementById('brushSize');
+  const swatchesEl = document.getElementById('swatches');
+  const canvas = document.getElementById('board');
+  const ctx = canvas.getContext('2d');
+  const saveGalleryBtn = document.getElementById('saveGalleryBtn');
+  const downloadBtn = document.getElementById('downloadBtn');
+  const clearGalleryBtn = document.getElementById('clearGalleryBtn');
+  const galleryGrid = document.getElementById('galleryGrid');
+  const hintBtn = document.getElementById('hintBtn');
+  const hintOutput = document.getElementById('hintOutput');
+  const rateBtn = document.getElementById('rateBtn');
+  const ratingOutput = document.getElementById('ratingOutput');
+
+  const GALLERY_KEY = 'sketchdash-gallery';
+
+  function loadGallery(){
+    try{
+      const raw = localStorage.getItem(GALLERY_KEY);
+      return raw ? JSON.parse(raw) : [];
+    }catch(err){
+      console.error('Gallery load failed', err);
+      return [];
+    }
+  }
+
+  function persistGallery(items){
+    try{
+      localStorage.setItem(GALLERY_KEY, JSON.stringify(items));
+    }catch(err){
+      console.error('Gallery save failed', err);
+    }
+  }
+
+  function renderGallery(){
+    const items = loadGallery();
+    galleryGrid.innerHTML = '';
+    if(items.length === 0){
+      const empty = document.createElement('div');
+      empty.className = 'gallery-empty';
+      empty.textContent = 'No sketches saved yet — draw something and tap "Save to gallery".';
+      galleryGrid.appendChild(empty);
+      return;
+    }
+    items.slice().reverse().forEach(item => {
+      const card = document.createElement('div');
+      card.className = 'gallery-item';
+      const img = document.createElement('img');
+      img.src = item.data;
+      img.alt = item.word;
+      const cap = document.createElement('div');
+      cap.className = 'gallery-caption';
+      const span = document.createElement('span');
+      span.textContent = item.word;
+      const btns = document.createElement('div');
+      btns.className = 'gallery-caption-btns';
+      const dl = document.createElement('button');
+      dl.className = 'gallery-dl';
+      dl.textContent = '⬇';
+      dl.title = 'Download';
+      dl.hidden = !downloadsFn;
+      dl.addEventListener('click', () => downloadDataUrl(item.data, item.word));
+      const del = document.createElement('button');
+      del.className = 'gallery-del';
+      del.textContent = '✕';
+      del.title = 'Remove';
+      del.addEventListener('click', () => {
+        const all = loadGallery().filter(i => i.id !== item.id);
+        persistGallery(all);
+        renderGallery();
+      });
+      btns.appendChild(dl);
+      btns.appendChild(del);
+      cap.appendChild(span);
+      cap.appendChild(btns);
+      card.appendChild(img);
+      card.appendChild(cap);
+      galleryGrid.appendChild(card);
+    });
+  }
+
+  function saveCurrentToGallery(){
+    if(!currentWord){ return; }
+    const items = loadGallery();
+    items.push({
+      id: Date.now() + '-' + Math.random().toString(36).slice(2,7),
+      word: currentWord,
+      data: canvas.toDataURL('image/png')
+    });
+    if(items.length > 60) items.shift();
+    persistGallery(items);
+    renderGallery();
+  }
+
+  const ROUND_SECONDS = 60;
+  const CIRC = 2 * Math.PI * 24;
+  ringFg.style.strokeDasharray = CIRC;
+  ringFg.style.strokeDashoffset = 0;
+
+  let solved = 0, streak = 0;
+  let currentWord = "";
+  let revealed = false;
+  let timeLeft = ROUND_SECONDS;
+  let timerId = null;
+  let usedWords = [];
+
+  let drawing = false;
+  let eraser = false;
+  let color = "#241F16";
+  let history = [];
+  let downloadsFn = null;
+
+  function resizeCanvas(){
+    const rect = canvas.getBoundingClientRect();
+    const ratio = window.devicePixelRatio || 1;
+    const savedData = canvas.width > 0 ? canvas.toDataURL() : null;
+    canvas.width = rect.width * ratio;
+    canvas.height = 420 * ratio;
+    canvas.style.height = "420px";
+    ctx.setTransform(ratio,0,0,ratio,0,0);
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    if(savedData){
+      const img = new Image();
+      img.onload = () => ctx.drawImage(img,0,0,rect.width,420);
+      img.src = savedData;
+    }
+  }
+  window.addEventListener('resize', resizeCanvas);
+
+  function pickWord(){
+    if(usedWords.length >= words.length) usedWords = [];
+    let w;
+    do { w = words[Math.floor(Math.random()*words.length)]; }
+    while(usedWords.includes(w));
+    usedWords.push(w);
+    return w;
+  }
+
+  function updateRing(){
+    const frac = timeLeft / ROUND_SECONDS;
+    ringFg.style.strokeDashoffset = CIRC * (1 - frac);
+    timerNumEl.textContent = timeLeft;
+    if(timeLeft <= 10){ ringFg.style.stroke = "var(--coral)"; }
+    else { ringFg.style.stroke = "var(--teal)"; }
+  }
+
+  function stopTimer(){
+    if(timerId){ clearInterval(timerId); timerId = null; }
+  }
+
+  function startTimer(){
+    stopTimer();
+    timeLeft = ROUND_SECONDS;
+    updateRing();
+    timerId = setInterval(() => {
+      timeLeft--;
+      updateRing();
+      if(timeLeft <= 0){
+        stopTimer();
+        timeUp();
+      }
+    }, 1000);
+  }
+
+  function timeUp(){
+    streak = 0;
+    streakCountEl.textContent = streak;
+    promptWordEl.textContent = "time's up — it was \"" + currentWord + "\"";
+    promptWordEl.classList.remove('hidden-word');
+    revealed = true;
+  }
+
+  function newRound(){
+    currentWord = pickWord();
+    revealed = true;
+    promptWordEl.textContent = currentWord;
+    promptWordEl.classList.remove('hidden-word');
+    revealBtn.textContent = 'Hide word';
+    clearCanvas();
+    startTimer();
+  }
+
+  function clearCanvas(){
+    const rect = canvas.getBoundingClientRect();
+    ctx.clearRect(0,0,rect.width,420);
+    history = [];
+  }
+
+  function saveHistory(){
+    history.push(canvas.toDataURL());
+    if(history.length > 20) history.shift();
+  }
+
+  function undo(){
+    if(history.length === 0){ clearCanvas(); return; }
+    const data = history.pop();
+    const rect = canvas.getBoundingClientRect();
+    ctx.clearRect(0,0,rect.width,420);
+    const img = new Image();
+    img.onload = () => ctx.drawImage(img,0,0,rect.width,420);
+    img.src = data;
+  }
+
+  // Drawing handlers
+  function getPos(e){
+    const rect = canvas.getBoundingClientRect();
+    const t = e.touches ? e.touches[0] : e;
+    return { x: t.clientX - rect.left, y: t.clientY - rect.top };
+  }
+  function startDraw(e){
+    e.preventDefault();
+    saveHistory();
+    drawing = true;
+    const p = getPos(e);
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+  }
+  function moveDraw(e){
+    if(!drawing) return;
+    e.preventDefault();
+    const p = getPos(e);
+    ctx.lineWidth = brushSize.value;
+    ctx.strokeStyle = eraser ? "#FFFDF6" : color;
+    ctx.globalCompositeOperation = eraser ? "destination-out" : "source-over";
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+  }
+  function endDraw(){ drawing = false; }
+
+  canvas.addEventListener('mousedown', startDraw);
+  canvas.addEventListener('mousemove', moveDraw);
+  window.addEventListener('mouseup', endDraw);
+  canvas.addEventListener('touchstart', startDraw, {passive:false});
+  canvas.addEventListener('touchmove', moveDraw, {passive:false});
+  canvas.addEventListener('touchend', endDraw);
+
+  // Palette
+  const palette = ["#241F16","#EF6C5C","#F5B942","#0E7C7B","#4C6EF5","#FFFFFF"];
+  palette.forEach((c,i) => {
+    const b = document.createElement('button');
+    b.className = 'swatch' + (i===0 ? ' active' : '');
+    b.style.background = c;
+    b.addEventListener('click', () => {
+      color = c;
+      eraser = false;
+      eraserBtn.classList.remove('active');
+      [...swatchesEl.children].forEach(el => el.classList.remove('active'));
+      b.classList.add('active');
+    });
+    swatchesEl.appendChild(b);
+  });
+
+  eraserBtn.addEventListener('click', () => {
+    eraser = !eraser;
+    eraserBtn.classList.toggle('active', eraser);
+  });
+
+  clearBtn.addEventListener('click', () => { saveHistory(); clearCanvas(); });
+  undoBtn.addEventListener('click', undo);
+
+  gotItBtn.addEventListener('click', () => {
+    if(!currentWord) return;
+    stopTimer();
+    solved++; streak++;
+    solvedCountEl.textContent = solved;
+    streakCountEl.textContent = streak;
+    newRound();
+  });
+
+  skipBtn.addEventListener('click', () => {
+    if(!currentWord) return;
+    stopTimer();
+    streak = 0;
+    streakCountEl.textContent = streak;
+    newRound();
+  });
+
+  newWordBtn.addEventListener('click', newRound);
+
+  revealBtn.addEventListener('click', () => {
+    if(!currentWord) return;
+    revealed = !revealed;
+    promptWordEl.classList.toggle('hidden-word', !revealed);
+    revealBtn.textContent = revealed ? 'Hide word' : 'Reveal word';
+  });
+
+  saveGalleryBtn.addEventListener('click', saveCurrentToGallery);
+  clearGalleryBtn.addEventListener('click', () => {
+    persistGallery([]);
+    renderGallery();
+  });
+
+  // --- Downloads ---
+  function safeFilename(word){
+    return 'sketch-dash-' + (word || 'drawing').replace(/[^a-z0-9]+/gi,'-').toLowerCase() + '.png';
+  }
+
+  async function downloadDataUrl(dataUrl, word){
+    if(!downloadsFn) return;
+    try{
+      const blob = await (await fetch(dataUrl)).blob();
+      await downloadsFn.save({ filename: safeFilename(word), data: blob });
+    }catch(e){
+      // declined / rate_limited / unavailable — nothing else to do, viewer already saw why
+    }
+  }
+
+  downloadBtn.addEventListener('click', () => {
+    if(!downloadsFn || !currentWord) return;
+    downloadDataUrl(canvas.toDataURL('image/png'), currentWord);
+  });
+
+  async function initDownloads(){
+    try{
+      if(!window.claude || !window.claude.use) return;
+      downloadsFn = await window.claude.use('downloads');
+      downloadBtn.hidden = !downloadsFn;
+      if(downloadsFn) renderGallery();
+    }catch(e){
+      downloadsFn = null;
+    }
+  }
+
+  // --- AI hint + rating (Claude "sample" capability) ---
+  let sampleFn = null;
+  let imagesOk = false;
+
+  function copyForSampleError(e){
+    const code = e && e.code;
+    if(code === 'cancelled') return '';
+    if(code === 'not_granted' || code === 'sampling_disabled' || code === 'not_declared'
+       || code === 'capability_disabled' || code === 'capability_removed'){
+      hintBtn.hidden = true;
+      rateBtn.hidden = true;
+      return '';
+    }
+    if(code === 'rate_limited') return "Too many requests right now — try again in a bit.";
+    if(code === 'image_rejected') return "Couldn't read that drawing — try again.";
+    if(code === 'images_unavailable'){ rateBtn.hidden = true; return ''; }
+    return "Couldn't get an answer just now — try again.";
+  }
+
+  async function initSample(){
+    try{
+      if(!window.claude || !window.claude.use) return;
+      sampleFn = await window.claude.use('sample');
+      if(!sampleFn) return;
+      hintBtn.hidden = false;
+      try{
+        const limits = await sampleFn.limits();
+        imagesOk = !!limits.images;
+      }catch(e){ imagesOk = false; }
+      rateBtn.hidden = !imagesOk;
+    }catch(e){
+      sampleFn = null;
+    }
+  }
+
+  hintBtn.addEventListener('click', async () => {
+    if(!sampleFn || !currentWord) return;
+    hintBtn.disabled = true;
+    hintOutput.hidden = false;
+    hintOutput.textContent = 'Thinking of a hint…';
+    try{
+      const { text } = await sampleFn(
+        'You are helping someone in a drawing-and-guessing game. The secret word they must draw is "'
+        + currentWord + '". Give ONE short, playful hint, under 20 words, about how to draw or think '
+        + 'about it (its shape, parts, or where you\'d find it). Never say the word itself, any part of '
+        + 'it, or a word that rhymes with it.',
+        { modelTier: 'quick' }
+      );
+      hintOutput.textContent = '💡 ' + text;
+    }catch(e){
+      const msg = copyForSampleError(e);
+      if(msg) hintOutput.textContent = msg; else hintOutput.hidden = true;
+    }finally{
+      hintBtn.disabled = false;
+    }
+  });
+
+  rateBtn.addEventListener('click', async () => {
+    if(!sampleFn || !currentWord || !imagesOk) return;
+    rateBtn.disabled = true;
+    ratingOutput.hidden = false;
+    ratingOutput.textContent = 'Judging your masterpiece…';
+    try{
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+      if(!blob) throw { code: 'image_rejected' };
+      const data = await sampleFn.json(
+        'This image is a doodle drawn for the word "' + currentWord + '" in a drawing game. Rate how '
+        + 'well it depicts "' + currentWord + '" from 1 to 10 (10 = instantly recognizable). Reply with '
+        + 'ONLY a JSON object: {"score": number, "feedback": "one short, encouraging sentence, under 25 words"}.',
+        { images: blob, modelTier: 'default', cache: false }
+      );
+      const score = Math.max(0, Math.min(10, Math.round(Number(data.score))));
+      ratingOutput.innerHTML = '';
+      const scoreSpan = document.createElement('span');
+      scoreSpan.className = 'rating-score';
+      scoreSpan.textContent = score + '/10';
+      ratingOutput.appendChild(scoreSpan);
+      ratingOutput.appendChild(document.createTextNode(' — ' + (data.feedback || '')));
+    }catch(e){
+      const msg = copyForSampleError(e);
+      if(msg) ratingOutput.textContent = msg; else ratingOutput.hidden = true;
+    }finally{
+      rateBtn.disabled = false;
+    }
+  });
+
+  initSample();
+  initDownloads();
+
+  resizeCanvas();
+  updateRing();
+  renderGallery();
+})();
+</script>
+</body>
+</html>
